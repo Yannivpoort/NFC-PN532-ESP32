@@ -17,6 +17,8 @@ Based on readMifareClassicIrq.pde by Adafruit
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_PN532.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 static void startListeningToNFC();
 static void handleCardDetected();
@@ -24,6 +26,15 @@ static void handleCardDetected();
 // Pins used for I2C IRQ
 #define PN532_IRQ   4
 #define PN532_RESET 5 
+
+#define SSID "IB3"
+#define PWD "ingenieursbeleving3"
+
+#define MQTT_SERVER "192.168.0.190"
+#define MQTT_PORT 1883
+
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 const int DELAY_BETWEEN_CARDS = 500;
 long timeLastCardRead = 0;
@@ -47,6 +58,10 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 void setup(void) {
   Serial.begin(115200); //Adapt the platformio.ini with correct monitor_speed
 
+  setup_wifi();
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+  reconnect();
+
   Serial.println("Begin NFC532 Scanning Software.");
 
   nfc.begin();
@@ -68,6 +83,12 @@ void setup(void) {
 }
 
 void loop(void) {
+  if (!client.connected()) {
+    reconnect();
+  }
+
+  client.loop();
+
   if (readerDisabled) {
     if (millis() - timeLastCardRead > DELAY_BETWEEN_CARDS) {
       readerDisabled = false;
@@ -124,6 +145,14 @@ void handleCardDetected() {
         //Serial.print("Seems to be a Mifare Classic card #");
         Serial.print("Card ID NUMERIC Value: ");
         Serial.println(cardid);
+
+        String uidString = String(cardid);
+
+        if (client.publish("tag", uidString.c_str())) {
+            Serial.println("UID verzonden via MQTT!");
+        } else {
+            Serial.println("MQTT publiceren mislukt!");
+        }
       }
       Serial.println("");
 
@@ -132,4 +161,49 @@ void handleCardDetected() {
 
     // The reader will be enabled again after DELAY_BETWEEN_CARDS ms will pass.
     readerDisabled = true;
+}
+
+void setup_wifi()
+{
+  delay(10);
+  Serial.println("Connecting to WiFi..");
+
+  WiFi.begin(SSID, PWD);
+
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void reconnect()
+{
+  // Loop until we're reconnected
+  while (!client.connected())
+  {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    // creat unique client ID
+    // in Mosquitto broker enable anom. access
+    if (client.connect("ESP_Mauro"))
+    {
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("esp32/output");
+    }
+    else
+    {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
