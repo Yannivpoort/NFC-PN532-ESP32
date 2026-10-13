@@ -37,6 +37,9 @@ void callback(char *topic, byte *message, unsigned int length);
 #define MQTT_SERVER "192.168.0.190"
 #define MQTT_PORT 1883
 
+#define MQTT_USER "Luser"
+#define MQTT_PASSWORD "AAAAH"
+
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -196,7 +199,7 @@ void reconnect()
     // Attempt to connect
     // creat unique client ID
     // in Mosquitto broker enable anom. access
-    if (client.connect("ESP_Mauro"))
+    if (client.connect("ESP_Mauro", MQTT_USER, MQTT_PASSWORD))
     {
       Serial.println("connected");
       // Subscribe
