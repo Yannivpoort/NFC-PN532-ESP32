@@ -23,6 +23,10 @@ Based on readMifareClassicIrq.pde by Adafruit
 static void startListeningToNFC();
 static void handleCardDetected();
 
+void setup_wifi();
+void reconnect();
+void callback(char *topic, byte *message, unsigned int length);
+
 // Pins used for I2C IRQ
 #define PN532_IRQ   4
 #define PN532_RESET 5 
@@ -57,14 +61,15 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 void setup(void) {
   Serial.begin(115200); //Adapt the platformio.ini with correct monitor_speed
-
+  nfc.begin();
   setup_wifi();
   client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setCallback(callback);
   reconnect();
 
   Serial.println("Begin NFC532 Scanning Software.");
 
-  nfc.begin();
+  
 
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
@@ -195,7 +200,7 @@ void reconnect()
     {
       Serial.println("connected");
       // Subscribe
-      client.subscribe("esp32/output");
+      client.subscribe("wachtwoord");
     }
     else
     {
@@ -206,4 +211,19 @@ void reconnect()
       delay(5000);
     }
   }
+}
+
+void callback(char *topic, byte *message, unsigned int length)
+{
+    Serial.print("Bericht ontvangen op topic: ");
+    Serial.println(topic);
+
+    Serial.print("Inhoud: ");
+
+    for (unsigned int i = 0; i < length; i++)
+    {
+        Serial.print((char)message[i]);
+    }
+
+    Serial.println();
 }
